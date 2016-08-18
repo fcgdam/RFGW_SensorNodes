@@ -51,9 +51,6 @@ ISR(PCINT0_vect) {
     // This is called when the interrupt occurs, but I don't need to do anything in it
     }
 
-
-
-
 void setup()
 {
 //  pinMode(LED_PIN, OUTPUT);
@@ -65,19 +62,19 @@ void setup()
 void send_status_msg(long vcc ) {
 
   // Store the voltage:
-  status_msg[3] = (byte) 4 ;
-  status_msg[4] = (byte) vcc >> 8;
-  status_msg[5] = (byte) vcc >> 16;
-  status_msg[6] = (byte) vcc >> 24;
-  status_msg[7] = 9;
+  status_msg[3] = (byte) 4; //vcc
+  status_msg[4] = (byte) 15; //vcc >> 8;
+  status_msg[5] = (byte) 83; //vcc >> 16;
+  status_msg[6] = (byte) 7; //vcc >> 24;
+  status_msg[7] = msgseq;
   status_msg[8] = 0xff;
 
   msgseq = msgseq + 4;
 
   // Given the data, add Hamming EC data
-  eclen = man.EC_encodeMessage( 8, status_msg, ecdata );
+  eclen = man.EC_encodeMessage( 9, status_msg, ecdata );
   status_msg[0] = (byte) eclen;
-  eclen = man.EC_encodeMessage( 8, status_msg, ecdata );
+  eclen = man.EC_encodeMessage( 9, status_msg, ecdata );
 
   //Serial.println( eclen );
   man.transmitArray( eclen, ecdata);
