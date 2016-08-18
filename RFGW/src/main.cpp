@@ -1,4 +1,4 @@
-#include "Manchester.h"
+#include <Manchester.h>
 
 /*
  * 433Mhz based gateway for my RF nodes.
@@ -97,7 +97,8 @@ void loop()
 
     //do something with the data in 'buffer' here before you start receiving to the same buffer again
     sizeMsg = buffer[0];       // This is the data size without EC bytes
-    receivedSize = getECSize( sizeMsg);
+    //receivedSize = getECSize( sizeMsg);
+    receivedSize = sizeMsg;
     Serial.print("Received data from RF: ");
     Serial.print( receivedSize);
     Serial.println(" bytes received." );
