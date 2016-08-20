@@ -19,14 +19,18 @@ uint8_t ledstat  = 1; //last led status
 // 3rd byte is device id
 // 4th byte and beyond is message payload ended by 0xFF to easy debug at the receiver end.
 
-uint8_t status_msg[9]  = {8, 'S', DEVICE_ID, 0, 0, 0, 0, 0, 0xFF};
+// This message is only sent at boot time. It allows to pin point boots, if any.
+uint8_t boot_msg[4]  = {0, 'B', DEVICE_ID, 0xFF};
 
-uint8_t data_msg[11]   = {10, 'M', DEVICE_ID, 0, 0, 0, 0, 0, 0, 0, 0xFF};
+// The message array. Second byte is S for Status message, or M for data.
+uint8_t data_msg[9]  = {0, 'M', DEVICE_ID, 0, 0, 0, 0, 0, 0xFF};
 
 uint8_t ecdata[16];
 uint8_t eclen;
 
-uint8_t msgseq = 0;   // Message sequence number
+uint8_t stsseq = 0;   // Message sequence number for status_msg
+uint8_t msgseq = 0;   // Message sequence number for data_msg
+
 
 void sleep() {
 
@@ -51,36 +55,44 @@ ISR(PCINT0_vect) {
     // This is called when the interrupt occurs, but I don't need to do anything in it
     }
 
-void setup()
-{
-//  pinMode(LED_PIN, OUTPUT);
-//  digitalWrite(LED_PIN, ledstat);
-  //man.workAround1MhzTinyCore(); //add this in order for transmitter to work with 1Mhz Attiny85/84
-  man.setupTransmit(TX_PIN, MAN_600);
-}
 
-void send_status_msg(long vcc ) {
 
-  // Store the voltage:
-  status_msg[3] = (byte) 4; //vcc
-  status_msg[4] = (byte) 15; //vcc >> 8;
-  status_msg[5] = (byte) 83; //vcc >> 16;
-  status_msg[6] = (byte) 7; //vcc >> 24;
-  status_msg[7] = msgseq;
-  status_msg[8] = 0xff;
-
-  msgseq = msgseq + 4;
-
+void send_boot_msg() {
   // Given the data, add Hamming EC data
-  eclen = man.EC_encodeMessage( 9, status_msg, ecdata );
-  status_msg[0] = (byte) eclen;
-  eclen = man.EC_encodeMessage( 9, status_msg, ecdata );
+  eclen = man.EC_encodeMessage( 4, boot_msg, ecdata );
+  boot_msg[0] = (byte) eclen;
+  eclen = man.EC_encodeMessage( 4, boot_msg, ecdata );
 
   //Serial.println( eclen );
   man.transmitArray( eclen, ecdata);
-  //man.transmitArray( 8, status_msg);
+}
+
+
+void send_status_msg(long vcc ) {
+
+  data_msg[1] = 'S';
+  data_msg[3] = msgseq;
+
+  // Store the voltage:
+  data_msg[4] = (byte) vcc;
+  data_msg[5] = (byte) vcc >> 8;
+  data_msg[6] = (byte) vcc >> 16;
+  data_msg[7] = (byte) vcc >> 24;
+
+  data_msg[8] = 0xff;
+
+  stsseq = stsseq + 1;
+
+  // Given the data, add Hamming EC data
+  eclen = man.EC_encodeMessage( 9, data_msg, ecdata );
+  data_msg[0] = (byte) eclen;
+  eclen = man.EC_encodeMessage( 9, data_msg, ecdata );
+
+  //Serial.println( eclen );
+  man.transmitArray( eclen, ecdata);
 
 }
+
 
 long readVcc() {
   // Read 1.1V reference against AVcc
@@ -107,6 +119,16 @@ long readVcc() {
   result = 1125300L / result; // Calculate Vcc (in mV); 1125300 = 1.1*1023*1000
   return result; // Vcc in millivolts
 }
+
+void setup()
+{
+//  pinMode(LED_PIN, OUTPUT);
+//  digitalWrite(LED_PIN, ledstat);
+  man.workAround1MhzTinyCore(); //add this in order for transmitter to work with 1Mhz Attiny85/84
+  man.setupTransmit(TX_PIN, MAN_600);
+  send_boot_msg();
+}
+
 
 void loop()
 {
