@@ -1,4 +1,5 @@
-#include <Manchester.h>
+#include "Manchester.h"
+#include <ArduinoJson.h>
 
 /*
  * 433Mhz based gateway for my RF nodes.
@@ -52,14 +53,15 @@ void processCommand() {
 
 void setup()
 {
+  StaticJsonBuffer<200> jsonBuffer;
+
   // Setup serial port
   Serial.begin(9600);
-
 
   // Setup RF RX receiver.
   // I've choosen a low bit rate to improve range.
   man.setupReceive(RX_PIN, MAN_600);
-  man.beginReceiveArray(BUFFER_SIZE, buffer);
+  man.beginReceiveArray(BUFFER_SIZE, buffer); // This initiates the listening process
 
   // Prepare the input buffer for the serial port
   // We only expect at maximum around 32 bytes.
@@ -68,7 +70,11 @@ void setup()
   // Let's use first the Pin 13 LED for heartbeat from node-red
   pinMode(LED_PIN, OUTPUT);
 
-  Serial.println("Starting...");
+  JsonObject& root = jsonBuffer.createObject();
+  root["status"] = "OK";
+  root["type"] = "RFBOOT";
+  root.printTo(Serial);
+  Serial.println("");
 }
 
 uint8_t getECSize(uint8_t size) {
@@ -85,40 +91,56 @@ uint8_t getECSize(uint8_t size) {
 void loop()
 {
 
-
   // Process RF received data
   if (man.receiveComplete())
   {
+    StaticJsonBuffer<200> jsonBuffer;
+
     uint8_t receivedSize = 0;
     uint8_t sizeMsg = 0;
+
+    JsonObject& root = jsonBuffer.createObject();
 
     // Increment the message count
     msg_count++;
 
     //do something with the data in 'buffer' here before you start receiving to the same buffer again
-    sizeMsg = buffer[0];       // This is the data size without EC bytes
-    //receivedSize = getECSize( sizeMsg);
-    receivedSize = sizeMsg;
-    Serial.print("Received data from RF: ");
-    Serial.print( receivedSize);
-    Serial.println(" bytes received." );
-    printArray( buffer , receivedSize );
+    receivedSize = buffer[0];       // This is the data size without EC bytes
+    // receivedSize = getECSize( sizeMsg);
+    // receivedSize = sizeMsg;
+    // Serial.print("Received data from RF: ");
+    // Serial.print( receivedSize);
+    // Serial.println(" bytes received." );
+    // printArray( buffer , receivedSize );
 
     // Now let's apply EC
     res = man.EC_decodeMessage( receivedSize , buffer, &ddata, data );
+    // Serial.println("EC message: ");
+    // printArray( data, ddata );
 
     if ( res != NO_ERROR ) {  // Message was received with uncorrectable errors
       msg_errors ++;
 
-      // Let's send info to node-red
-      Serial.println("ERRMSG");
-    } else {                  // Message was received fine. Let's sendit to the backend
+      root["status"] = "NOK";
+      root["type"] = String((char)data[1]);
+
+
+    } else {                  // Message was received fine. Let's send it to the backend
+      root["status"] = "OK";
+      root["type"] = String((char)data[1]);
 
     }
+    root["msgtotal"] = msg_count;
+    root["msgerror"] = msg_errors;
+    root["deviceid"] = data[2];
+
+    // Let's send info to node-red
+    root.printTo(Serial);
+    Serial.println("");
 
     // And print the resulting EC message.
-    Serial.println("EC message: ");
-    printArray( data, ddata );
+    // Serial.println("EC message: ");
+    // printArray( data, ddata );
 
     man.beginReceiveArray(BUFFER_SIZE, buffer);
     moo++;
