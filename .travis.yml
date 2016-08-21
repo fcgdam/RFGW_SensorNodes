@@ -38,8 +38,8 @@ install:
      - platformio lib install 64
 
 script:
-     - cd RFGW && platformio run && cd ../ATTINNY_MailMonitor_TX && platformio run
-
+     - cd RFGW && platformio run
+     - cd ATTINNY_MailMonitor_TX && platformio run
 
 #
 # Template #2: The project is intended to by used as a library with examples
