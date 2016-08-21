@@ -35,10 +35,9 @@ cache:
 
 install:
      - pip install -U platformio
-     - platformio lib install 64
 
 script:
-     - cd RFGW && platformio run
+     - cd RFGW && platformio run -e nanoatmega328
      - cd ../ATTINNY_MailMonitor_TX && platformio run
 
 #
