@@ -1,20 +1,17 @@
 #include <Arduino.h>
-
-
 #include <avr/sleep.h>
 #include <avr/interrupt.h>
 #include <Manchester.h>
 
 #define DEVICE_ID  0x01
 
-#define TX_PIN  1  //pin where your transmitter is connected
-//#define LED_PIN 1  //pin for blinking LED
+#define TX_PIN  1  // Pin where your transmitter is connected
 
-uint8_t ledstat  = 1; //last led status
+#define FLAP_IRQ 0 // Pin used for the interrupt request of FLAP_IRQ
+#define STAT_IRQ 2 // Pin used fof the interrupt request of status
 
 // Message to be transmitted
-
-// First byte is message lenght without the byte itself.
+// First byte is message lenght
 // 2nd byte is message type identifier.
 // 3rd byte is device id
 // 4th byte and beyond is message payload ended by 0xFF to easy debug at the receiver end.
@@ -25,17 +22,21 @@ uint8_t boot_msg[4]  = {0, 'B', DEVICE_ID, 0xFF};
 // The message array. Second byte is S for Status message, or M for data.
 uint8_t data_msg[9]  = {0, 'M', DEVICE_ID, 0, 0, 0, 0, 0, 0xFF};
 
-uint8_t ecdata[16];
-uint8_t eclen;
+uint8_t ecdata[16];   // Buffer for message with error correction data added
+uint8_t eclen;        // Buffer lenght for the above buffer
 
 uint8_t stsseq = 0;   // Message sequence number for status_msg
 uint8_t msgseq = 0;   // Message sequence number for data_msg
 
+volatile uint8_t i_type = 0;    // Interrupt type: 0 for flap movement, 1 for status heart beat
 
 void sleep() {
 
     GIMSK |= _BV(PCIE);                     // Enable Pin Change Interrupts
-    PCMSK |= _BV(PCINT0);                   // Use PB0 as interrupt pin
+
+    PCMSK |= _BV(PCINT0);                   // Use PB0 as interrupt pin for detecting the Mailbox flap
+    PCMSK |= _BV(PCINT2);                   // Use PB2 as interrupt pin for the status message keep alive
+
     ADCSRA &= ~_BV(ADEN);                   // ADC off
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);    // replaces above statement
 
@@ -44,7 +45,9 @@ void sleep() {
     sleep_cpu();                            // sleep
 
     cli();                                  // Disable interrupts
-    PCMSK &= ~_BV(PCINT3);                  // Turn off PB3 as interrupt pin
+    PCMSK &= ~_BV(PCINT0);                  // Turn off PB0 as interrupt pin
+    PCMSK &= ~_BV(PCINT2);                  // Turn off PB1 as interrupt pin
+
     sleep_disable();                        // Clear SE bit
     ADCSRA |= _BV(ADEN);                    // ADC on
 
@@ -52,10 +55,12 @@ void sleep() {
     } // sleep
 
 ISR(PCINT0_vect) {
-    // This is called when the interrupt occurs, but I don't need to do anything in it
-    }
-
-
+    i_type = 1;
+    // if ( GIFR & 0x40 )
+    //       i_type = 0;
+    // if ( GIFR & 0x20 )
+    //       i_type = 1;
+}
 
 void send_boot_msg() {
   // Given the data, add Hamming EC data
@@ -67,11 +72,9 @@ void send_boot_msg() {
   man.transmitArray( eclen, ecdata);
 }
 
+void send_msg(long vcc , uint8_t seq) {
 
-void send_status_msg(long vcc ) {
-
-  data_msg[1] = 'S';
-  data_msg[3] = msgseq;
+  data_msg[3] = seq;
 
   // Store the voltage:
   data_msg[4] = (byte) vcc;
@@ -81,18 +84,23 @@ void send_status_msg(long vcc ) {
 
   data_msg[8] = 0xff;
 
-  stsseq = stsseq + 1;
-
   // Given the data, add Hamming EC data
   eclen = man.EC_encodeMessage( 9, data_msg, ecdata );
   data_msg[0] = (byte) eclen;
   eclen = man.EC_encodeMessage( 9, data_msg, ecdata );
 
-  //Serial.println( eclen );
   man.transmitArray( eclen, ecdata);
-
 }
 
+void send_status_msg( long vcc )  {
+  data_msg[1] = 'S';
+  send_msg( vcc , stsseq++ );
+}
+
+void send_flap_msg( long vcc ) {
+  data_msg[1] = 'M';
+  send_msg( vcc, msgseq++ );
+}
 
 long readVcc() {
   // Read 1.1V reference against AVcc
@@ -125,25 +133,31 @@ void setup()
 {
 //  pinMode(LED_PIN, OUTPUT);
 //  digitalWrite(LED_PIN, ledstat);
+
+// Setup interrupt pins
+  pinMode(FLAP_IRQ,INPUT);
+  pinMode(STAT_IRQ,INPUT);
+  digitalWrite(FLAP_IRQ, HIGH);
+  digitalWrite(STAT_IRQ, HIGH);
+
   man.workAround1MhzTinyCore(); //add this in order for transmitter to work with 1Mhz Attiny85/84
   man.setupTransmit(TX_PIN, MAN_600);
   send_boot_msg();
 }
 
-
 void loop()
 {
   long VccBat = 0;
 
-  VccBat = readVcc();
-
-  send_status_msg(VccBat);
-
-  //ledstat = ++ledstat % 2;
-  //digitalWrite(LED_PIN, ledstat);
-
-
   //delay(1000);
   sleep();
 
+  VccBat = readVcc();         // Read battery voltage.
+
+  if ( i_type == 0 )          // If interrupt type is 0, then it was wake up from PCINT0
+    send_flap_msg(VccBat);    // It seems that in this case the ISR is not executed.
+  else {
+    send_status_msg(VccBat);  // We where waked up, and the ISR was executed.
+    i_type = 0;               // Reset the i_type.
+  }
 }

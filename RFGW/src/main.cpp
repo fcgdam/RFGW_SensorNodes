@@ -98,6 +98,7 @@ void loop()
 
     uint8_t receivedSize = 0;
     uint8_t sizeMsg = 0;
+    long vbat;
 
     JsonObject& root = jsonBuffer.createObject();
 
@@ -118,21 +119,29 @@ void loop()
     // Serial.println("EC message: ");
     // printArray( data, ddata );
 
+    if ( data[1] != 'B') {
+      vbat = data[4] + data[5]*256 + data[6]* 65536 + data[7]*16777216;
+    }
+
+
     if ( res != NO_ERROR ) {  // Message was received with uncorrectable errors
       msg_errors ++;
 
       root["status"] = "NOK";
       root["type"] = String((char)data[1]);
+      root["vbat"] = vbat;
 
 
     } else {                  // Message was received fine. Let's send it to the backend
       root["status"] = "OK";
       root["type"] = String((char)data[1]);
+      root["vbat"] = vbat;
 
     }
     root["msgtotal"] = msg_count;
     root["msgerror"] = msg_errors;
     root["deviceid"] = data[2];
+    root["msgseqn"] = data[3];    // For the boot message it will read the 0xFF value
 
     // Let's send info to node-red
     root.printTo(Serial);
