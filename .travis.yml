@@ -37,10 +37,8 @@ install:
      - pip install -U platformio
 
 script:
-#     - cd RFGW && platformio run -e nanoatmega328
-#     - cd ../ATTINNY_MailMonitor_TX && platformio run
-      - platformio ci --project-conf=RFGW/platformio.ini
-      - platformio ci --project-conf=ATTINNY_MailMonitor_TX/platformio.ini
+     - cd RFGW && platformio run -e nanoatmega328
+     - cd ../ATTINNY_MailMonitor_TX && platformio run
 
 #
 # Template #2: The project is intended to by used as a library with examples
