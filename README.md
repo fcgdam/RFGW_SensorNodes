@@ -4,4 +4,6 @@
 
 Arduino based 433Mhz Gateway that receives data from remote sensors and sends it to RPi/Odroid Node-Red for further processing.
 
+Data is sent from ATtinny85 Digispark based sensors with tilt switchs for movement detection and periodic status messages for keep alive.
+
 Code in development.
