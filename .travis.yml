@@ -12,7 +12,7 @@ script:
 - cd ../ATTINNY_MailMonitor_TX && platformio run
 deploy:
   provider: releases
-  api_key: GH_TOKEN
+  api_key: ${GH_TOKEN}
   file:
   - .pioenvs/nanoatmega328/firmware.hex
   - .pioenvs/digispark-tiny/firmware.elf
