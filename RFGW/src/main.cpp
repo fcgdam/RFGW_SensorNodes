@@ -120,8 +120,10 @@ void loop()
     // printArray( data, ddata );
 
     if ( data[1] != 'B') {
-      vbat = data[4] + data[5]*256 + data[6]* 65536 + data[7]*16777216;
-    }
+      vbat = data[4] + data[5]*256;
+      vbat = 1.1 * 1024 * 1000 / vbat;
+
+    } else vbat=0;
 
 
     if ( res != NO_ERROR ) {  // Message was received with uncorrectable errors
