@@ -14,8 +14,8 @@ deploy:
   provider: releases
   api_key: ${GH_TOKEN}
   file:
-  - .pioenvs/nanoatmega328/firmware.hex
-  - .pioenvs/digispark-tiny/firmware.elf
+  - ./RFGW/.pioenvs/nanoatmega328/firmware.hex
+  - ./ATTINNY_MailMonitor_TX/.pioenvs/digispark-tiny/firmware.elf
   skip_cleanup: true
   on:
     tags: true
