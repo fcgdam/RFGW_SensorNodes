@@ -29,6 +29,7 @@ uint8_t stsseq = 0;   // Message sequence number for status_msg
 uint8_t msgseq = 0;   // Message sequence number for data_msg
 
 volatile uint8_t i_type = 0;    // Interrupt type: 0 for flap movement, 1 for status heart beat
+volatile uint8_t i_cnt = 0;     // Interupt count
 
 void sleep() {
 
@@ -44,6 +45,7 @@ void sleep() {
     sei();                                  // Enable interrupts
     sleep_cpu();                            // sleep
 
+    i_type = PINB;
     cli();                                  // Disable interrupts
     PCMSK &= ~_BV(PCINT0);                  // Turn off PB0 as interrupt pin
     PCMSK &= ~_BV(PCINT2);                  // Turn off PB1 as interrupt pin
@@ -55,7 +57,8 @@ void sleep() {
     } // sleep
 
 ISR(PCINT0_vect) {
-    i_type = 1;
+    //i_type = 1;
+    i_cnt++;
     // if ( GIFR & 0x40 )
     //       i_type = 0;
     // if ( GIFR & 0x20 )
@@ -79,8 +82,8 @@ void send_msg(long vcc , uint8_t seq) {
   // Store the voltage:
   data_msg[4] = (byte) vcc;
   data_msg[5] = (byte) vcc >> 8;
-  data_msg[6] = (byte) vcc >> 16;
-  data_msg[7] = (byte) vcc >> 24;
+  data_msg[6] = 0; //(byte) vcc >> 16;
+  data_msg[7] = 0; //(byte) vcc >> 24;
 
   data_msg[8] = 0xff;
 
@@ -102,7 +105,7 @@ void send_flap_msg( long vcc ) {
   send_msg( vcc, msgseq++ );
 }
 
-long readVcc() {
+uint16_t readVcc() {
   // Read 1.1V reference against AVcc
   // set the reference to Vcc and the measurement to the internal 1.1V reference
 /*  #if defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
@@ -120,12 +123,12 @@ long readVcc() {
   ADCSRA |= _BV(ADSC); // Start conversion
   while (bit_is_set(ADCSRA,ADSC)); // measuring
 
-  uint8_t low  = ADCL; // must read ADCL first - it then locks ADCH
-  uint8_t high = ADCH; // unlocks both
+  //uint8_t low  = ADCL; // must read ADCL first - it then locks ADCH
+  //uint8_t high = ADCH; // unlocks both
 
-  long result = (high<<8) | low;
+  uint16_t result = ADC;// (high<<8) | low;
 
-  result = 1125300L / result; // Calculate Vcc (in mV); 1125300 = 1.1*1023*1000
+  //result = 1125300L / result; // Calculate Vcc (in mV); 1125300 = 1.1*1023*1000
   return result; // Vcc in millivolts
 }
 
@@ -154,7 +157,7 @@ void loop()
 
   VccBat = readVcc();         // Read battery voltage.
 
-  if ( i_type == 0 )          // If interrupt type is 0, then it was wake up from PCINT0
+  if ( i_type == 12 )          // If interrupt type is 0, then it was wake up from PCINT0
     send_flap_msg(VccBat);    // It seems that in this case the ISR is not executed.
   else {
     send_status_msg(VccBat);  // We where waked up, and the ISR was executed.
