@@ -1,5 +1,7 @@
 #include "Manchester.h"
 #include <ArduinoJson.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 
 /*
  * 433Mhz based gateway for my RF nodes.
@@ -21,6 +23,8 @@ uint8_t data[BUFFER_SIZE];
 // Input command and data buffer:
 String inputData = "";
 boolean inputDataReady = false;
+
+LiquidCrystal_I2C lcd( 0x27, 16, 2); // I2C address, collums and rows
 
 void printArray( uint8_t *data , uint8_t dlen )
 {
@@ -56,8 +60,12 @@ void setup()
   StaticJsonBuffer<200> jsonBuffer;
 
   // Setup serial port
-  Serial.begin(9600);
-
+  Serial.begin(115200);
+  lcd.init();                       // Initiates the HD44780 display with the I2C PF8475 adapter
+  lcd.backlight();                  // Turns on the display
+  lcd.begin(16,2);
+  lcd.setCursor(0,0); //Start at character 4 on line 0
+  lcd.print("Starting...");
   // Setup RF RX receiver.
   // I've choosen a low bit rate to improve range.
   man.setupReceive(RX_PIN, MAN_600);
@@ -157,6 +165,13 @@ void loop()
     moo++;
     moo = moo % 2;
     digitalWrite(LED_PIN, moo);
+
+    // Shows data on the display
+    lcd.setCursor(0 , 0) ;
+    lcd.print("M: ");
+    lcd.print( msg_count );
+    lcd.print(" E: ");
+    lcd.print( msg_errors);
   }
 
   // Process Serial received data
