@@ -83,6 +83,10 @@ void setup()
   root["type"] = "RFBOOT";
   root.printTo(Serial);
   Serial.println("");
+
+  lcd.setCursor(0,0); //Start at character 4 on line 0
+  lcd.print("Ready!     ");
+
 }
 
 uint8_t getECSize(uint8_t size) {
@@ -172,6 +176,9 @@ void loop()
     lcd.print( msg_count );
     lcd.print(" E: ");
     lcd.print( msg_errors);
+    lcd.setCursor(0,1);
+    lcd.print("Vbat: ");
+    lcd.print(vbat);
   }
 
   // Process Serial received data
