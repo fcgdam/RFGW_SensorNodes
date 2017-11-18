@@ -112,33 +112,67 @@ void i2cScanner() {
 
 void getTime() {
   Ds1307::DateTime now;
-rtc.getDateTime(&now);
+  rtc.getDateTime(&now);
 
-if (last_second != now.second)
-{
-    last_second = now.second;
+  if (last_second != now.second)
+  {
+      last_second = now.second;
 
-    Serial.print("20");
-    Serial.print(now.year);    // 00-99
-    Serial.print('-');
-    if (now.month < 10) Serial.print('0');
-    Serial.print(now.month);   // 01-12
-    Serial.print('-');
-    if (now.day < 10) Serial.print('0');
-    Serial.print(now.day);     // 01-31
-    Serial.print(' ');
-    Serial.print(WeekDays[now.dow - 1]); // 1-7
-    Serial.print(' ');
-    if (now.hour < 10) Serial.print('0');
-    Serial.print(now.hour);    // 00-23
-    Serial.print(':');
-    if (now.minute < 10) Serial.print('0');
-    Serial.print(now.minute);  // 00-59
-    Serial.print(':');
-    if (now.second < 10) Serial.print('0');
-    Serial.print(now.second);  // 00-59
-    Serial.println();
-}
+      lcd.setCursor(0 , 0) ;
+
+      Serial.print("20");
+      lcd.print("20");
+      Serial.print(now.year);    // 00-99
+      lcd.print(now.year);
+
+      Serial.print('-');
+      lcd.print("-");
+
+      if (now.month < 10) {
+        Serial.print('0');
+        lcd.print("0");
+      }
+      Serial.print(now.month);   // 01-12
+      lcd.print(now.month);
+      Serial.print('-');
+      lcd.print("-");
+
+      if (now.day < 10) {
+        Serial.print('0');
+        lcd.print("0");
+      }
+      Serial.print(now.day);     // 01-31
+      lcd.print(now.day);
+      Serial.print(' ');
+      lcd.print(" ");
+      Serial.print(WeekDays[now.dow - 1]); // 1-7
+
+      Serial.print(' ');
+      lcd.setCursor(0 , 1);
+      if (now.hour < 10) {
+         Serial.print('0');
+         lcd.print("0");
+       }
+      Serial.print(now.hour);    // 00-23
+      lcd.print(now.hour);
+      Serial.print(':');
+      lcd.print(":");
+      if (now.minute < 10){
+        Serial.print('0');
+        lcd.print("0");
+      }
+      Serial.print(now.minute);  // 00-59
+      lcd.print(now.minute);
+      Serial.print(':');
+      lcd.print(":");
+      if (now.second < 10) {
+       Serial.print('0');
+       lcd.print("0");
+      }
+      Serial.print(now.second);  // 00-59
+      lcd.print(now.second);
+      Serial.println();
+  }
 }
 
 void setup()
@@ -175,23 +209,25 @@ void setup()
 
   i2cScanner();
   // initialize the RTC
-rtc.init();
+  rtc.init();
 
-// test if clock is halted and set a date-time (see example 2) to start it
-    Serial.println("RTC is halted. Setting time...");
+  // test if clock is halted and set a date-time (see example 2) to start it
+  if (rtc.isHalted())
+  {
+      Serial.println("RTC is halted. Setting time...");
 
-    Ds1307::DateTime dt = {
-        .year = 17,
-        .month = Ds1307::MONTH_NOV,
-        .day = 18,
-        .hour = 18,
-        .minute = 41,
-        .second = 53,
-        .dow = Ds1307::DOW_MON
-    };
+      Ds1307::DateTime dt = {
+          .year = 17,
+          .month = Ds1307::MONTH_OCT,
+          .day = 30,
+          .hour = 17,
+          .minute = 41,
+          .second = 53,
+          .dow = Ds1307::DOW_MON
+      };
 
-    rtc.setDateTime(&dt);
-
+      rtc.setDateTime(&dt);
+  }
 
 }
 
