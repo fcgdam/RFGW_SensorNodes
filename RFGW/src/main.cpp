@@ -2,6 +2,7 @@
 #include <ArduinoJson.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
+#include <Ds1307.h>
 
 /*
  * 433Mhz based gateway for my RF nodes.
@@ -11,6 +12,7 @@
 */
 #define RX_PIN  4
 #define LED_PIN 13
+#define DS1307_I2C_ADDRESS 0x68
 
 uint8_t moo = 1 , res , ddata;
 
@@ -25,6 +27,20 @@ String inputData = "";
 boolean inputDataReady = false;
 
 LiquidCrystal_I2C lcd( 0x27, 16, 2); // I2C address, collums and rows
+// DS1307 RTC instance
+Ds1307 rtc(DS1307_I2C_ADDRESS);
+static uint8_t last_second = 0;
+
+const static char* WeekDays[] =
+{
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday"
+};
 
 void printArray( uint8_t *data , uint8_t dlen )
 {
@@ -53,6 +69,76 @@ void processCommand() {
       Serial.println("Processing H1");
       digitalWrite(LED_PIN, 1);
     }
+}
+
+void i2cScanner() {
+  byte error, address;
+  int nDevices;
+
+  Serial.println("Scanning...");
+
+  nDevices = 0;
+  for(address = 1; address < 127; address++ )
+  {
+    // The i2c_scanner uses the return value of
+    // the Write.endTransmisstion to see if
+    // a device did acknowledge to the address.
+    Wire.beginTransmission(address);
+    error = Wire.endTransmission();
+
+    if (error == 0)
+    {
+      Serial.print("I2C device found at address 0x");
+      if (address<16)
+        Serial.print("0");
+      Serial.print(address,HEX);
+      Serial.println("  !");
+
+      nDevices++;
+    }
+    else if (error==4)
+    {
+      Serial.print("Unknown error at address 0x");
+      if (address<16)
+        Serial.print("0");
+      Serial.println(address,HEX);
+    }
+  }
+  if (nDevices == 0)
+    Serial.println("No I2C devices found\n");
+  else
+    Serial.println("done\n");
+}
+
+void getTime() {
+  Ds1307::DateTime now;
+rtc.getDateTime(&now);
+
+if (last_second != now.second)
+{
+    last_second = now.second;
+
+    Serial.print("20");
+    Serial.print(now.year);    // 00-99
+    Serial.print('-');
+    if (now.month < 10) Serial.print('0');
+    Serial.print(now.month);   // 01-12
+    Serial.print('-');
+    if (now.day < 10) Serial.print('0');
+    Serial.print(now.day);     // 01-31
+    Serial.print(' ');
+    Serial.print(WeekDays[now.dow - 1]); // 1-7
+    Serial.print(' ');
+    if (now.hour < 10) Serial.print('0');
+    Serial.print(now.hour);    // 00-23
+    Serial.print(':');
+    if (now.minute < 10) Serial.print('0');
+    Serial.print(now.minute);  // 00-59
+    Serial.print(':');
+    if (now.second < 10) Serial.print('0');
+    Serial.print(now.second);  // 00-59
+    Serial.println();
+}
 }
 
 void setup()
@@ -87,6 +173,26 @@ void setup()
   lcd.setCursor(0,0); //Start at character 4 on line 0
   lcd.print("Ready!     ");
 
+  i2cScanner();
+  // initialize the RTC
+rtc.init();
+
+// test if clock is halted and set a date-time (see example 2) to start it
+    Serial.println("RTC is halted. Setting time...");
+
+    Ds1307::DateTime dt = {
+        .year = 17,
+        .month = Ds1307::MONTH_NOV,
+        .day = 18,
+        .hour = 18,
+        .minute = 41,
+        .second = 53,
+        .dow = Ds1307::DOW_MON
+    };
+
+    rtc.setDateTime(&dt);
+
+
 }
 
 uint8_t getECSize(uint8_t size) {
@@ -100,6 +206,7 @@ uint8_t getECSize(uint8_t size) {
   return s;
 }
 
+
 void loop()
 {
 
@@ -109,7 +216,7 @@ void loop()
     StaticJsonBuffer<200> jsonBuffer;
 
     uint8_t receivedSize = 0;
-    uint8_t sizeMsg = 0;
+    //uint8_t sizeMsg = 0;
     long vbat;
 
     JsonObject& root = jsonBuffer.createObject();
@@ -192,6 +299,8 @@ void loop()
     inputData = "";
     inputDataReady = false;
   }
+
+  getTime();
 
 }
 
